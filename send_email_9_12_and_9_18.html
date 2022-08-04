@@ -1,0 +1,43 @@
+<html>
+
+<head>
+</head>
+
+<body>
+
+<form id="form" onsubmit="return validation()">
+  <p> Recipient: <input type="text" name="in1" id="in1"></p>
+  <p id="p1"></p>
+  <p> Subject: <input type="text" name="in2"></p>
+  <button type="submit" id="btn">Send</button>
+</form>
+
+<script>
+
+function showSubmit() {
+  recipient = document.forms[0].elements[0].value;
+  subject = document.forms[0].elements[1].value;
+  location = "mailto:"+recipient+"?subject="+subject;
+  return true;
+}
+
+function validation() {
+  recipient = document.getElementById("in1");
+  if (recipient.value.length == 0) {
+    document.getElementById("p1").innerHTML = "Recipient cannot be empty";
+    recipient.focus();
+    return false;
+  }
+  else {
+    showSubmit();
+  }
+}
+
+// the below doesn't work, because the form is redrawn and the error message disappears
+//form.addEventListener("submit", validation, false);
+
+</script>
+
+</body>
+
+</html>
