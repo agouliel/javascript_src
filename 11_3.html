@@ -1,0 +1,32 @@
+<html>
+
+<body>
+
+<button id="btn">Click</button>
+<p id="content"></p>
+
+<script>
+
+xhr = new XMLHttpRequest();
+
+function makeRequest() {
+  xhr.open("GET", "test.txt", true);
+  xhr.onreadystatechange=function() {
+    if (xhr.readyState===4 && xhr.status===200) {
+      document.getElementById("content").innerHTML = xhr.responseText;
+    }
+    else {
+      alert("Status=" + xhr.status + " Text=" + xhr.responseText);
+    }
+  };
+  xhr.send(null);
+}
+
+btn = document.getElementById("btn");
+btn.addEventListener("click", makeRequest);
+
+</script>
+
+</body>
+
+</html>
