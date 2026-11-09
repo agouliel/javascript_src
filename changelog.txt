@@ -1,0 +1,104 @@
+CONTACTS MANAGER - TECHNICAL CHANGELOG
+======================================
+
+Overview
+--------
+Single-file (contacts.html) client-side contacts manager. No backend, no build
+step, no framework. Vanilla HTML/CSS/JS. All data stays in the user's browser.
+
+Architecture
+------------
+- UI: one table view + one modal (details/edit/add form), rendered by plain
+  DOM/innerHTML (render() rebuilds <tbody>; user text is escaped via esc()).
+- State: in-memory `contacts` array, `selected` Set of ids, `sort` {k, dir}.
+- Persistence:
+  * Contact records: localStorage key "contacts.v1" (JSON array, ~5 MB quota).
+  * Scanned source files: IndexedDB database "contacts-scans", object store
+    "files", key = contact id, value = {name, type, data: ArrayBuffer}.
+    Kept separate from contact data; deleted together with the contact.
+- External dependencies (loaded lazily from jsDelivr CDN on first use):
+  * Tesseract.js v5 (OCR; also fetches its worker, WASM core and the English
+    language data on demand).
+  * pdf.js (pdfjs-dist 3.11.174) for PDF rendering. Its worker is fetched and
+    wrapped in a Blob URL so it works when opened via file://.
+  Internet is required the first time; the browser HTTP cache may serve them
+  afterwards. The app does not store these libraries itself.
+
+Data model (contact)
+--------------------
+id, name, title, company, email, phone, website, address,
+category (Vetting Inspector | Class | Banking | Finance | Oil Major | Other),
+verified (boolean), notes (string), created (epoch ms).
+Defaults for new contacts: category "Other", verified false.
+
+Features
+--------
+1. Scan processing ("Process scanned cards..." button)
+   - Multi-file picker: images and PDFs.
+   - Files processed sequentially with one shared Tesseract worker; progress
+     toast shows file and page. Each contact is saved as soon as it completes.
+   - PDFs: every page is rendered to a canvas (scale 2.5) and OCR'd; only the
+     best page is kept (score = OCR confidence + 15 per recognised field among
+     name/title/company/email/phone). One PDF -> one contact.
+   - Blank or unreadable files are reported as failed at the end.
+   - Original file is stored in IndexedDB; the contact gets the OCR text
+     appended to its notes.
+
+2. Field extraction (parseCard) - rule-based, on-device, no ML model
+   - email: regex; website: www./domain regex.
+   - phone: multiple candidates, OCR fix of O->0 inside numbers, fax lines and
+     date-like strings discarded, priority mobile > labelled (tel/phone/direct)
+     > unlabelled, numbers starting with + or 00 preferred.
+   - title: keyword match (manager, director, inspector, officer, ...).
+   - company: legal-form/industry keyword match (Ltd, Inc, GmbH, Bank,
+     Shipping, ...); falls back to the email/website domain.
+   - name: 2-4 capitalised words, no digits, not company/address-like; falls
+     back to the email local part. ALL-CAPS words are normalised.
+   - address: lines containing street/floor/postcode-like tokens.
+   - Category is always "Other" and verification "unverified" after scanning.
+
+3. List view
+   - Columns: checkbox, Name, Company, Title, Email, Phone, Category, Status.
+   - Sorting: click header to sort / toggle direction (blanks last).
+   - Search: case-insensitive across all text fields incl. notes.
+   - Filters: category and verification (verified / unverified).
+   - Counter shows shown/total and selected count.
+
+4. Details screen (click a row)
+   - Edit all fields, category, verification, notes; submit with Save changes.
+   - Shows the stored scanned file: <img> for images, <iframe> (browser PDF
+     viewer) for PDFs, plus open/download link (Blob URL, revoked on close).
+   - Delete single contact. Esc / backdrop click / Cancel closes.
+
+5. ADD CONTACT: opens the same form empty; creates a manual contact.
+
+6. Batch actions: row checkboxes + select-all (applies to the filtered view);
+   "Verify" marks selected as verified; "Delete" asks for confirmation and
+   removes contacts and their stored files.
+
+Known limitations
+-----------------
+- Data is per browser profile and per origin (domain); no sync or backup.
+  Different browsers/devices do not share contacts. Clearing site data erases
+  everything. (JSON export/import not implemented.)
+- localStorage is ~5 MB; OCR text kept in notes consumes it for large sets.
+- OCR/PDF libraries need internet on first use (CDN); not bundled.
+- Field extraction is heuristic; layouts/languages other than English may be
+  parsed incorrectly (OCR language is English only). Review and verify.
+- Browsers cannot write to an arbitrary disk folder, hence IndexedDB is used
+  for scanned files (works in Safari and Chrome).
+
+Deployment
+----------
+Static file; open locally or serve with any web server (e.g. nginx location
+/contacts/ with alias). Use HTTPS. Storage is shared by all apps on the same
+origin (domain), regardless of path.
+
+History
+-------
+- Initial version: contacts CRUD, categories, verification, notes, search,
+  sort, filters, batch verify/delete, OCR of image business cards.
+- Added PDF input (best page per PDF).
+- Added Phone column and more robust phone extraction.
+- Added storage of scanned files (IndexedDB) and preview on details screen.
+- Renamed scan button to "Process scanned cards...".
